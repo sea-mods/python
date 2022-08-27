@@ -1,0 +1,27 @@
+import re
+import aiohttp
+from discord import AsyncWebhookAdapter, AllowedMentions, Webhook
+
+async def on_message(message):
+    if message.channel.id in global_chat_channel_ids:
+        content = message.content
+    
+        for emoji in bot.emojis:
+            if f":{emoji.name}:" in content:
+                content = re.sub(f":{emoji.name}:", f"{emoji}", content)
+
+        content = re.sub("(https?://)?discord.gg/\w+", "[Invalid Invite]", content) #URLを[Invalid Invite]にする
+        content = re.sub("(https?://)?discord.club/i/\w+", "[Invalid Invite]", content) #URLを[Invalid Invite]にする
+        content = re.sub("(https?://)?discordapp.com/invite/\w+", "[Invalid Invite]", content) #URLを[Invalid Invite]にする
+        content = re.sub("((http|https)://)?([\w\-]+\.)+[\w\-]+(/[\w\-./?%&=]*)?", "[Invalid URL]", content) #URLを[Invalid Invite]にする
+        for url in global_chat_webhook_urls:
+            webhooks = await message.channel.webhooks()
+            if f"{webhooks[0].id}" not in url and not message.webhook_id:
+                async with aiohttp.ClientSession() as session:
+                    w = Webhook.from_url(url, adapter=AsyncWebhookAdapter(session))
+                    await w.send(username=f"{message.author}",
+avatar_url=message.author.avatar_url, 
+content=content if content else None, 
+file=await message.attachments[0].to_file() if message.attachments else None, 
+embed=message.embeds[0] if message.embeds else None,
+allowed_mentions=AllowedMentions(everyone=False, users=False, roles=False))
